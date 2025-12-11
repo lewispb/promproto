@@ -3,6 +3,7 @@
 $LOAD_PATH.unshift File.expand_path("../lib", __dir__)
 require "promproto"
 require "minitest/autorun"
+require "webmock/minitest"
 
 class Minitest::Test
   def self.test(name, &block)

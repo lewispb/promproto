@@ -208,4 +208,105 @@ class CLITest < Minitest::Test
     assert_equal 1, result.size
     assert_equal "test_metric", result.first.name
   end
+
+  test "fetches and renders metrics from protobuf endpoint" do
+    # Build protobuf response with multiple metric types
+    families = []
+
+    # Counter
+    families << Io::Prometheus::Client::MetricFamily.new(
+      name: "http_requests_total",
+      help: "Total HTTP requests",
+      type: :COUNTER,
+      metric: [
+        Io::Prometheus::Client::Metric.new(
+          label: [
+            Io::Prometheus::Client::LabelPair.new(name: "method", value: "GET"),
+            Io::Prometheus::Client::LabelPair.new(name: "status", value: "200")
+          ],
+          counter: Io::Prometheus::Client::Counter.new(value: 1234.0)
+        )
+      ]
+    )
+
+    # Gauge
+    families << Io::Prometheus::Client::MetricFamily.new(
+      name: "temperature_celsius",
+      help: "Current temperature",
+      type: :GAUGE,
+      metric: [
+        Io::Prometheus::Client::Metric.new(
+          label: [Io::Prometheus::Client::LabelPair.new(name: "location", value: "office")],
+          gauge: Io::Prometheus::Client::Gauge.new(value: 22.5)
+        )
+      ]
+    )
+
+    # Histogram
+    families << Io::Prometheus::Client::MetricFamily.new(
+      name: "request_duration_seconds",
+      help: "Request duration histogram",
+      type: :HISTOGRAM,
+      metric: [
+        Io::Prometheus::Client::Metric.new(
+          histogram: Io::Prometheus::Client::Histogram.new(
+            sample_count: 100,
+            sample_sum: 53.2,
+            bucket: [
+              Io::Prometheus::Client::Bucket.new(upper_bound: 0.1, cumulative_count: 20),
+              Io::Prometheus::Client::Bucket.new(upper_bound: 0.5, cumulative_count: 70),
+              Io::Prometheus::Client::Bucket.new(upper_bound: 1.0, cumulative_count: 95),
+              Io::Prometheus::Client::Bucket.new(upper_bound: Float::INFINITY, cumulative_count: 100)
+            ]
+          )
+        )
+      ]
+    )
+
+    # Encode as length-delimited protobuf
+    body = families.map do |family|
+      encoded = family.to_proto
+      varint_encode(encoded.bytesize) + encoded
+    end.join
+
+    stub_request(:get, "http://localhost:9090/metrics")
+      .to_return(
+        status: 200,
+        body: body,
+        headers: { "Content-Type" => "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited" }
+      )
+
+    cli = Promproto::CLI.new("http://localhost:9090/metrics")
+    output = capture_io { cli.run }.first
+
+    # Verify output contains expected metric data
+    assert_includes output, "http_requests_total"
+    assert_includes output, "counter"
+    assert_includes output, "1234"
+    assert_includes output, "method"
+    assert_includes output, "GET"
+
+    assert_includes output, "temperature_celsius"
+    assert_includes output, "gauge"
+    assert_includes output, "22.5"
+    assert_includes output, "office"
+
+    assert_includes output, "request_duration_seconds"
+    assert_includes output, "histogram"
+    assert_includes output, "count:"
+    assert_includes output, "100"
+    assert_includes output, "le="
+  end
+
+  private
+
+  def varint_encode(value)
+    result = []
+    while value > 127
+      result << ((value & 0x7F) | 0x80)
+      value >>= 7
+    end
+    result << value
+    result.pack("C*")
+  end
 end
