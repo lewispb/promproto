@@ -15,7 +15,7 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["source_code_uri"] = spec.homepage
 
-  spec.files = Dir.glob("{lib,exe}/**/*") + %w[README.md LICENSE.txt]
+  spec.files = Dir.glob("{lib,exe}/**/*") + %w[README.md LICENSE.md]
   spec.bindir = "exe"
   spec.executables = ["promproto"]
   spec.require_paths = ["lib"]
