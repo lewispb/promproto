@@ -1,0 +1,52 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require_relative "../lib/promproto"
+
+options = { watch: false, interval: Promproto::CLI::DEFAULT_WATCH_INTERVAL }
+
+parser = OptionParser.new do |opts|
+  opts.banner = "Usage: promproto [options] <target>"
+  opts.separator ""
+  opts.separator "Fetches Prometheus metrics in protobuf format and renders them."
+  opts.separator ""
+  opts.separator "Target can be:"
+  opts.separator "  - Full URL: http://localhost:9090/metrics"
+  opts.separator "  - Host:port: localhost:9090 (assumes http:// and /metrics)"
+  opts.separator "  - Host only: localhost (assumes http://, port 80, and /metrics)"
+  opts.separator ""
+  opts.separator "Options:"
+
+  opts.on("-w", "--watch", "Continuously fetch and display metrics") do
+    options[:watch] = true
+  end
+
+  opts.on("-n", "--interval SECONDS", Integer, "Refresh interval in seconds (default: #{Promproto::CLI::DEFAULT_WATCH_INTERVAL})") do |n|
+    options[:interval] = n
+  end
+
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+
+  opts.on("-v", "--version", "Show version") do
+    puts "promproto #{Promproto::VERSION}"
+    exit
+  end
+end
+
+begin
+  parser.parse!
+rescue OptionParser::InvalidOption => e
+  abort "#{e.message}\nUse --help for usage information."
+end
+
+if ARGV.empty?
+  puts parser
+  exit 1
+end
+
+url = Promproto.normalize_url(ARGV[0])
+Promproto::CLI.new(url, watch: options[:watch], interval: options[:interval]).run
