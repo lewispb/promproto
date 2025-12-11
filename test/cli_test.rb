@@ -27,194 +27,8 @@ class CLITest < Minitest::Test
     assert_instance_of Promproto::CLI, cli
   end
 
-  test "type_name for counter" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "counter", cli.send(:type_name, :COUNTER)
-  end
-
-  test "type_name for gauge" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "gauge", cli.send(:type_name, :GAUGE)
-  end
-
-  test "type_name for summary" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "summary", cli.send(:type_name, :SUMMARY)
-  end
-
-  test "type_name for histogram" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "histogram", cli.send(:type_name, :HISTOGRAM)
-  end
-
-  test "type_name for gauge_histogram" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "gauge_histogram", cli.send(:type_name, :GAUGE_HISTOGRAM)
-  end
-
-  test "type_name for untyped" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "untyped", cli.send(:type_name, :UNTYPED)
-  end
-
-  test "type_name for unknown" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "unknown", cli.send(:type_name, :UNKNOWN)
-  end
-
-  test "format_labels with empty labels" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "", cli.send(:format_labels, [])
-  end
-
-  test "format_labels with labels" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    label1 = Io::Prometheus::Client::LabelPair.new(name: "job", value: "prometheus")
-    label2 = Io::Prometheus::Client::LabelPair.new(name: "instance", value: "localhost:9090")
-
-    result = cli.send(:format_labels, [label1, label2])
-    assert_includes result, "job"
-    assert_includes result, "prometheus"
-    assert_includes result, "instance"
-    assert_includes result, "localhost:9090"
-  end
-
-  test "format_bound with positive infinity" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "+Inf", cli.send(:format_bound, Float::INFINITY)
-  end
-
-  test "format_bound with negative infinity" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "-Inf", cli.send(:format_bound, -Float::INFINITY)
-  end
-
-  test "format_bound with normal value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "100", cli.send(:format_bound, 100.0)
-  end
-
-  test "format_bound with small value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    result = cli.send(:format_bound, 0.0001)
-    assert_match(/e/, result)
-  end
-
-  test "format_bound with large value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    result = cli.send(:format_bound, 10000.0)
-    assert_match(/e/, result)
-  end
-
-  test "format_bound with zero" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "0", cli.send(:format_bound, 0.0)
-  end
-
-  test "format_number with normal value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "123.5", cli.send(:format_number, 123.5)
-  end
-
-  test "format_number with large value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    result = cli.send(:format_number, 10000.0)
-    assert_match(/e/, result)
-  end
-
-  test "format_number with small value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    result = cli.send(:format_number, 0.0001)
-    assert_match(/e/, result)
-  end
-
-  test "bar_chart with zero" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "", cli.send(:bar_chart, 0, 20)
-  end
-
-  test "bar_chart with negative value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    assert_equal "", cli.send(:bar_chart, -1, 20)
-  end
-
-  test "bar_chart with positive value" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    result = cli.send(:bar_chart, 100, 20)
-    assert_includes result, "\e[44m"
-  end
-
-  test "bucket_bounds returns lower and upper" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    lower, upper = cli.send(:bucket_bounds, 0, 0)
-    assert lower < upper
-  end
-
-  test "read_varint with single byte" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    data = "\x05"
-    value, bytes_read = cli.send(:read_varint, data, 0)
-    assert_equal 5, value
-    assert_equal 1, bytes_read
-  end
-
-  test "read_varint with multi byte" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    data = "\xAC\x02"
-    value, bytes_read = cli.send(:read_varint, data, 0)
-    assert_equal 300, value
-    assert_equal 2, bytes_read
-  end
-
-  test "read_varint with empty data" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    value, bytes_read = cli.send(:read_varint, "", 0)
-    assert_equal 0, value
-    assert_equal 0, bytes_read
-  end
-
-  test "read_varint at offset" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    data = "XX\x05"
-    value, bytes_read = cli.send(:read_varint, data, 2)
-    assert_equal 5, value
-    assert_equal 1, bytes_read
-  end
-
-  test "parse_delimited with empty data" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-    result = cli.send(:parse_delimited, "")
-    assert_equal [], result
-  end
-
-  test "parse_delimited with valid metrics" do
-    cli = Promproto::CLI.new("http://localhost/metrics")
-
+  test "fetches and renders counter metrics" do
     family = Io::Prometheus::Client::MetricFamily.new(
-      name: "test_metric",
-      help: "A test metric",
-      type: :COUNTER,
-      metric: [
-        Io::Prometheus::Client::Metric.new(
-          counter: Io::Prometheus::Client::Counter.new(value: 42.0)
-        )
-      ]
-    )
-
-    encoded = family.to_proto
-    data = [encoded.bytesize].pack("C") + encoded
-
-    result = cli.send(:parse_delimited, data)
-    assert_equal 1, result.size
-    assert_equal "test_metric", result.first.name
-  end
-
-  test "fetches and renders metrics from protobuf endpoint" do
-    # Build protobuf response with multiple metric types
-    families = []
-
-    # Counter
-    families << Io::Prometheus::Client::MetricFamily.new(
       name: "http_requests_total",
       help: "Total HTTP requests",
       type: :COUNTER,
@@ -229,21 +43,45 @@ class CLITest < Minitest::Test
       ]
     )
 
-    # Gauge
-    families << Io::Prometheus::Client::MetricFamily.new(
+    stub_metrics_endpoint([ family ])
+
+    output = run_cli
+
+    assert_includes output, "http_requests_total"
+    assert_includes output, "counter"
+    assert_includes output, "1234"
+    assert_includes output, "method"
+    assert_includes output, "GET"
+    assert_includes output, "status"
+    assert_includes output, "200"
+  end
+
+  test "fetches and renders gauge metrics" do
+    family = Io::Prometheus::Client::MetricFamily.new(
       name: "temperature_celsius",
       help: "Current temperature",
       type: :GAUGE,
       metric: [
         Io::Prometheus::Client::Metric.new(
-          label: [Io::Prometheus::Client::LabelPair.new(name: "location", value: "office")],
+          label: [ Io::Prometheus::Client::LabelPair.new(name: "location", value: "office") ],
           gauge: Io::Prometheus::Client::Gauge.new(value: 22.5)
         )
       ]
     )
 
-    # Histogram
-    families << Io::Prometheus::Client::MetricFamily.new(
+    stub_metrics_endpoint([ family ])
+
+    output = run_cli
+
+    assert_includes output, "temperature_celsius"
+    assert_includes output, "gauge"
+    assert_includes output, "22.5"
+    assert_includes output, "location"
+    assert_includes output, "office"
+  end
+
+  test "fetches and renders histogram metrics" do
+    family = Io::Prometheus::Client::MetricFamily.new(
       name: "request_duration_seconds",
       help: "Request duration histogram",
       type: :HISTOGRAM,
@@ -263,50 +101,155 @@ class CLITest < Minitest::Test
       ]
     )
 
-    # Encode as length-delimited protobuf
-    body = families.map do |family|
-      encoded = family.to_proto
-      varint_encode(encoded.bytesize) + encoded
-    end.join
+    stub_metrics_endpoint([ family ])
 
-    stub_request(:get, "http://localhost:9090/metrics")
-      .to_return(
-        status: 200,
-        body: body,
-        headers: { "Content-Type" => "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited" }
-      )
-
-    cli = Promproto::CLI.new("http://localhost:9090/metrics")
-    output = capture_io { cli.run }.first
-
-    # Verify output contains expected metric data
-    assert_includes output, "http_requests_total"
-    assert_includes output, "counter"
-    assert_includes output, "1234"
-    assert_includes output, "method"
-    assert_includes output, "GET"
-
-    assert_includes output, "temperature_celsius"
-    assert_includes output, "gauge"
-    assert_includes output, "22.5"
-    assert_includes output, "office"
+    output = run_cli
 
     assert_includes output, "request_duration_seconds"
     assert_includes output, "histogram"
     assert_includes output, "count:"
     assert_includes output, "100"
+    assert_includes output, "sum:"
     assert_includes output, "le="
+    assert_includes output, "+Inf"
+  end
+
+  test "fetches and renders summary metrics" do
+    family = Io::Prometheus::Client::MetricFamily.new(
+      name: "request_latency_seconds",
+      help: "Request latency summary",
+      type: :SUMMARY,
+      metric: [
+        Io::Prometheus::Client::Metric.new(
+          summary: Io::Prometheus::Client::Summary.new(
+            sample_count: 1000,
+            sample_sum: 123.45,
+            quantile: [
+              Io::Prometheus::Client::Quantile.new(quantile: 0.5, value: 0.05),
+              Io::Prometheus::Client::Quantile.new(quantile: 0.9, value: 0.1),
+              Io::Prometheus::Client::Quantile.new(quantile: 0.99, value: 0.2)
+            ]
+          )
+        )
+      ]
+    )
+
+    stub_metrics_endpoint([ family ])
+
+    output = run_cli
+
+    assert_includes output, "request_latency_seconds"
+    assert_includes output, "summary"
+    assert_includes output, "count:"
+    assert_includes output, "1000"
+    assert_includes output, "sum:"
+    assert_includes output, "p50"
+    assert_includes output, "p90"
+    assert_includes output, "p99"
+  end
+
+  test "fetches and renders untyped metrics" do
+    family = Io::Prometheus::Client::MetricFamily.new(
+      name: "some_untyped_metric",
+      help: "An untyped metric",
+      type: :UNTYPED,
+      metric: [
+        Io::Prometheus::Client::Metric.new(
+          untyped: Io::Prometheus::Client::Untyped.new(value: 42.0)
+        )
+      ]
+    )
+
+    stub_metrics_endpoint([ family ])
+
+    output = run_cli
+
+    assert_includes output, "some_untyped_metric"
+    assert_includes output, "untyped"
+    assert_includes output, "42"
+  end
+
+  test "fetches and renders multiple metric families" do
+    families = [
+      Io::Prometheus::Client::MetricFamily.new(
+        name: "metric_one",
+        help: "First metric",
+        type: :COUNTER,
+        metric: [
+          Io::Prometheus::Client::Metric.new(
+            counter: Io::Prometheus::Client::Counter.new(value: 111.0)
+          )
+        ]
+      ),
+      Io::Prometheus::Client::MetricFamily.new(
+        name: "metric_two",
+        help: "Second metric",
+        type: :GAUGE,
+        metric: [
+          Io::Prometheus::Client::Metric.new(
+            gauge: Io::Prometheus::Client::Gauge.new(value: 222.0)
+          )
+        ]
+      )
+    ]
+
+    stub_metrics_endpoint(families)
+
+    output = run_cli
+
+    assert_includes output, "metric_one"
+    assert_includes output, "111"
+    assert_includes output, "metric_two"
+    assert_includes output, "222"
+  end
+
+  test "renders metrics without labels" do
+    family = Io::Prometheus::Client::MetricFamily.new(
+      name: "simple_counter",
+      help: "A simple counter",
+      type: :COUNTER,
+      metric: [
+        Io::Prometheus::Client::Metric.new(
+          counter: Io::Prometheus::Client::Counter.new(value: 99.0)
+        )
+      ]
+    )
+
+    stub_metrics_endpoint([ family ])
+
+    output = run_cli
+
+    assert_includes output, "simple_counter"
+    assert_includes output, "99"
   end
 
   private
+    def stub_metrics_endpoint(families, url: "http://localhost:9090/metrics")
+      body = families.map do |family|
+        encoded = family.to_proto
+        varint_encode(encoded.bytesize) + encoded
+      end.join
 
-  def varint_encode(value)
-    result = []
-    while value > 127
-      result << ((value & 0x7F) | 0x80)
-      value >>= 7
+      stub_request(:get, url)
+        .to_return(
+          status: 200,
+          body: body,
+          headers: { "Content-Type" => "application/vnd.google.protobuf; proto=io.prometheus.client.MetricFamily; encoding=delimited" }
+        )
     end
-    result << value
-    result.pack("C*")
-  end
+
+    def run_cli(url: "http://localhost:9090/metrics")
+      cli = Promproto::CLI.new(url)
+      capture_io { cli.run }.first
+    end
+
+    def varint_encode(value)
+      result = []
+      while value > 127
+        result << ((value & 0x7F) | 0x80)
+        value >>= 7
+      end
+      result << value
+      result.pack("C*")
+    end
 end

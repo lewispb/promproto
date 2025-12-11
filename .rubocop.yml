@@ -1,0 +1,8 @@
+inherit_gem:
+  rubocop-37signals: rubocop-ruby.yml
+
+Layout/IndentationConsistency:
+  EnforcedStyle: indented_internal_methods
+
+Layout/EmptyLinesAroundAccessModifier:
+  EnforcedStyle: only_before
